@@ -5,6 +5,8 @@ import tkinter as tk
 import matplotlib.pyplot as plt
 import names
 from pandas import DataFrame
+import pandas as pd
+import numpy as np
 
 
 class window:
@@ -18,24 +20,64 @@ class window:
         self.canvas = None
         self.x_var_option_value = None
         self.y_var_option_value = None
+        self.graph_type_option_value = None
+        self.table_frame = None
+        self.data_dict = {self.data[0][i]: [self.data[x][i] for x in range(1, len(self.data))] for i in
+                          range(0, len(self.data[0]))}
+        # setting up root
+        root = tk.Tk(className=" GRAPHICAL DATA VISUALISER")
+        root.geometry("1200x600")
+        root.resizable(False, False)
 
-        self.set_up_widgets()
+        self._no_of_plot_bars = tk.IntVar()
+        self._no_of_plot_bars.set(20)
 
-    def plot(self, title='Year Vs. Unemployment Rate'):
+        self.set_up_widgets(root)
+
+    def plot_bars(self):
         if self.data is None:
             raise Exception("please input data before using window.plot")
-        figure = plt.figure()
-        ax2 = figure.add_subplot(111)
-        data_dict = {self.data[0][i]:[self.data[x][i] for x in range(1,len(self.data))] for i in range(0,len(self.data[0]))}
-        print(data_dict)
-        data2 = {'Year': [1920, 1930, 1940, 1950, 1960, 1970, 1980, 1990, 2000, 2010],
-                 'Unemployment_Rate': [9.8, 12, 8, 7.2, 6.9, 7, 6.5, 6.2, 5.5, 6.3]
-                 }
-        df2 = DataFrame(data_dict, columns=['roll_no'])
-        df2 = df2['roll_no'].value_counts()
-        df2.plot(kind='bar')
-        ax2.set_title(title)
-        plt.show()
+        if self.x_var_option_value.get() != "choose option":
+            x_val = self.x_var_option_value.get()
+
+            df = DataFrame(self.data_dict, columns=[x_val])
+            max_value, min_value = df[x_val].max(), df[x_val].min()
+            bucket_size = (max_value - min_value) // self._no_of_plot_bars.get()
+            df.groupby(pd.cut(df[x_val], np.arange(min_value, max_value, bucket_size))).count().plot(kind='bar')
+
+            plt.show()
+        else:
+            print("enter valid option")
+
+    def plot_line(self):
+        if self.data is None:
+            raise Exception("please input data before using window.plot")
+        if self.x_var_option_value.get() != "choose option":
+            x_val = self.x_var_option_value.get()
+
+            df = DataFrame(self.data_dict, columns=[x_val])
+            max_value, min_value = df[x_val].max(), df[x_val].min()
+            bucket_size = (max_value - min_value) // self._no_of_plot_bars.get()
+            df.groupby(pd.cut(df[x_val], np.arange(min_value, max_value, bucket_size))).count().plot(kind='line')
+
+            plt.show()
+        else:
+            print("enter valid option")
+
+    def Plot_Selector(self):
+        graph_type = self.graph_type_option_value.get()
+
+        if graph_type == 'bars':
+            self.plot_bars()
+
+        elif graph_type == 'line':
+            self.plot_line()
+
+        else:
+            print("enter option")
+        # TODO finish plot selector : make use of y option for frequency and more .
+        # also make it do bars or line and such
+        pass
 
     def set_data(self, data):
         r = 0
@@ -47,12 +89,7 @@ class window:
                     self.info_table_vars[(r, c)].set(str(data[r][c]))
             r += 1
 
-    def set_up_widgets(self):
-        # setting up root
-        root = tk.Tk(className=" GRAPHICAL DATA VISUALISER")
-        root.geometry("1200x600")
-        root.resizable(False, False)
-
+    def set_up_widgets(self, root):
         # table frame
         table_and_options_frame = tk.Frame(root, height=600, width=800)
         table_and_options_frame.pack(side=tk.LEFT)
@@ -74,9 +111,9 @@ class window:
 
         # Create a vertical scrollbar linked to the canvas.
 
-        vsbar = tk.Scrollbar(outer_table_frame, orient=tk.VERTICAL, command=canvas.yview)
-        vsbar.grid(row=0, column=1, sticky=tk.NS)
-        canvas.configure(yscrollcommand=vsbar.set)
+        VsBar = tk.Scrollbar(outer_table_frame, orient=tk.VERTICAL, command=canvas.yview)
+        VsBar.grid(row=0, column=1, sticky=tk.NS)
+        canvas.configure(yscrollcommand=VsBar.set)
 
         # Create a horizontal scrollbar linked to the canvas.
         hsbar = tk.Scrollbar(outer_table_frame, orient=tk.HORIZONTAL, command=canvas.xview)
@@ -85,6 +122,7 @@ class window:
         canvas.configure(xscrollcommand=hsbar.set)
 
         table_frame = tk.Frame(canvas, bd=2)
+        self.table_frame = table_frame
 
         for r in range(self.rows):
             for c in range(self.columns):
@@ -108,6 +146,7 @@ class window:
         canvas.create_window((0, 0), window=table_frame, anchor=tk.NW)
         table_frame.update_idletasks()  # Needed to make bbox info available.
         bbox = canvas.bbox(tk.ALL)  # Get bounding box of canvas with entries.
+        # bbox = (width,height) (600,800)
         canvas.configure(scrollregion=bbox, width=780, height=380)
 
         # table options
@@ -146,11 +185,12 @@ class window:
                 toggle_btn["state"] = "disabled"
 
         def show_graph():
-
-            toggle(button_show_graph)
-            toggle(button_delete_graph)
-            print(graph_name_var.get())
-            self.plot(graph_name_var.get())
+            if self.x_var_option_value.get() != "choose option":
+                toggle(button_show_graph)
+                toggle(button_delete_graph)
+                self.Plot_Selector()
+            else:
+                print("enter valid option")
 
         def delete_graph():
 
@@ -179,16 +219,33 @@ class window:
         entry_graph_name.place(x=160, y=50, width=230, height=40)
 
         # graph functions
+
+        # x var functions
         x_var_label = tk.Label(graph_frame, text=" x =", justify=tk.CENTER, font=('Arial', 20, 'bold'),
                                width=5)
         x_var_label.place(x=10, y=100, width=50, height=40)
+
         self.x_var_option_value = tk.StringVar()
+
+        x_plot_bars_option = tkinter.OptionMenu(graph_frame, self._no_of_plot_bars, 5, 10, 20, 30, 40, 50)
+        x_plot_bars_option.place(x=80, y=350, width=100, height=40)
 
         x_var_option = tkinter.OptionMenu(graph_frame, self.x_var_option_value, *self.data[0], "custom")
         x_var_option.place(x=80, y=100, width=150, height=40)
         self.x_var_option_value.set("choose option")
 
-        # x var functions
+        # graph type bar functions
+
+        graph_type_label = tk.Label(graph_frame, text="graph type :", justify=tk.CENTER, font=('Arial', 12, 'bold'))
+        graph_type_label.place(x=10, y=150, width=100, height=40)
+
+        self.graph_type_option_value = tk.StringVar()
+
+        graph_type_option = tkinter.OptionMenu(graph_frame, self.graph_type_option_value, 'bars', 'line')
+        graph_type_option.place(x=120, y=150, width=150, height=40)
+        self.graph_type_option_value.set("choose option")
+
+        # y var functions
 
         y_var_label = tk.Label(graph_frame, text=" y =", justify=tk.CENTER, font=('Arial', 20, 'bold'),
                                width=5)
@@ -199,8 +256,6 @@ class window:
         y_var_option.place(x=80, y=300, width=150, height=40)
         self.y_var_option_value.set("choose option")
 
-
-
     def save_data(self):
         new_data = [self.data[0].copy()]
         for r in range(1, self.rows):
@@ -210,6 +265,8 @@ class window:
             new_data.append(row)
 
         self.data = new_data.copy()
+        self.data_dict = {self.data[0][i]: [self.data[x][i] for x in range(1, len(self.data))] for i in
+                          range(0, len(self.data[0]))}
 
     def reset_data(self):
         r = 0
@@ -233,6 +290,9 @@ class window:
         for r in range(self.rows):
             for c in range(self.columns):
                 self.info_table_dict[(r, c)][0].configure(width=max_len_columns[c])
+
+        self.table_frame.update_idletasks()
+
         self.canvas.configure(scrollregion=self.canvas.bbox(tk.ALL))
 
     def swap_column(self, column1_no, column2_no):
@@ -272,7 +332,6 @@ if __name__ == '__main__':
     database = [['no', 'age', 'name', 'roll_no', *[f"column_{4 + x}" for x in range(16)]],
                 *[gen_data() for _ in range(100)]]
     app = window(database)
-
     # app.dynamic_length_adjust()
 
     tk.mainloop()
