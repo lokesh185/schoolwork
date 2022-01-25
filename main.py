@@ -319,4 +319,4 @@ if __name__ == '__main__':
     database = [['no', 'age', 'name', 'roll_no', *[f"column_{4 + x}" for x in range(len(gen_data()) - 4)]],
                 *[gen_data() for _ in range(100)]]
     print(len(database), len(database[0]))
-    init(database)
+    start_application(database)
