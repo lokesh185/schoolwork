@@ -1,0 +1,235 @@
+from tkinter import *
+from pandastable import Table
+from tkinter import messagebox
+import mysql.connector
+import pandas as pd
+
+cur_result_no = -1
+data = []
+results = []
+mycon = None
+cur = None
+text = ""
+height = 100
+table_frame = None
+sel_table = None
+
+# main window
+root = Tk()
+root.geometry("1800x800")
+root.resizable(False, False)
+
+# master frame is frame for whole window
+master_frame = Frame(root, height=800, width=1800)
+master_frame.pack()  # pack => placed
+master_frame.grid_propagate(False)
+
+
+def get_text():
+    " returns text of textbox"
+    text = input_txt.get("1.0", "end-1c")
+    return text
+
+
+def clear_text():
+    "clears input text box"
+    input_txt.delete("1.0", "end")
+
+
+def tables_box_update():
+    " updates list box "
+    if tables_box.size() > 0:
+        tables_box.delete(0, tables_box.size())
+
+    tables_box.insert(1, *[f"table {x}" for x in range(len(data))])
+
+
+def refresh_table():
+    global sel_table, table_frame
+    if sel_table is not None:
+        table_frame.destroy()
+    sel_table = data[tables_box.curselection()[0]]
+    show_table(sel_table)
+
+
+def show_table(dataframe=None):
+    global table_frame, master_frame
+    if table_frame:
+        table_frame.destroy()
+    table_frame = Frame(master_frame, height=600, width=840, relief=SUNKEN, bd=5)
+    x = Table(table_frame, dataframe=dataframe
+              , showstatusbar=True, showtoolbar=True, height=600, width=840)
+    x.show()
+    table_frame.place(x=0, y=0, height=600, width=840)
+
+
+def connect_mysql():
+    global mycon, cur
+    if not mycon:
+        if user.get() and host.get() and password.get():
+            mycon = mysql.connector.connect(host=host.get(), user=user.get(),
+                                            passwd=password.get())
+            if check_connection():
+                cur = mycon.cursor()
+
+        else:
+            messagebox.showerror('Python Error', 'Error: user ,host ,password field should not be empty')
+
+
+def check_connection():
+    global mycon
+    if mycon:
+        if mycon.is_connected():
+            print("successfully connected to mysql database")
+            con_color_btn.config(bg="green")
+            return True
+        else:
+            print("connection unsuccessful")
+            con_color_btn.config(bg='red')
+            return False
+    else:
+        messagebox.showerror('Python Error', 'Error: establish connection first')
+        return False
+
+
+def mysql_execute():
+    global cur_result_no, cur
+    if check_connection():
+
+        cur.execute(get_text())
+        a = cur.column_names
+        b = cur.fetchall()
+        b = list(zip(*b))
+        print(a, b)
+        if len(a) == len(b) and (a or b):
+            df = pd.DataFrame({a[x]: b[x] for x in range((len(a)))})
+            results.append(df)
+            cur_result_no = len(results) - 1
+            show_result_Table(df)
+
+
+def show_result_Table(dataframe):
+    global table_frame
+    table_frame = Frame(rf, height=600, width=840, relief=SUNKEN, bd=5)
+    x = Table(table_frame, dataframe=dataframe
+              , showstatusbar=True, showtoolbar=False, height=600, width=800)
+    table_frame.place(x=0, y=300, height=500, width=960)
+    x.show()
+
+
+def previous():
+    global cur_result_no
+    if cur_result_no > 0:
+        cur_result_no -= 1
+        show_result_Table(results[cur_result_no])
+
+
+def _next():
+    global cur_result_no
+    if cur_result_no < len(results) - 1:
+        cur_result_no += 1
+        show_result_Table(results[cur_result_no])
+
+
+def mysql_commit():
+    global mycon
+    if mycon is not None:
+        mycon.commit()
+
+
+def mysql_rollback():
+    global mycon
+    if mycon is not None:
+        mycon.rollback()
+
+
+# opf options frame
+opf = Frame(master_frame, height=200, width=840, relief=SUNKEN, bd=5)
+
+Button(opf, text='commit', command=mysql_commit).place(y=0, x=640, height=50, width=100)
+Button(opf, text='rollback', command=mysql_rollback).place(y=50, x=640, height=50, width=100)
+Button(opf, text='refresh table', command=refresh_table).place(y=0, x=740, height=50, width=100)
+Button(opf, text='refresh list box').place(y=50, x=740, height=50, width=100)
+opf.place(x=0, y=600, height=400, width=840)
+Button(opf, text="create empty dataframe", font=('ariel', 16),
+       command=show_table).place(y=145, x=200, height=40, width=300)
+
+"mysql information entries :-"
+
+Label(opf, text="host", font=('Arial', 16, 'bold')).place(x=5, y=5, height=40, width=100)
+host = StringVar()
+host.set("localhost")
+Entry(opf, textvariable=host, width=30
+      , font=('Arial', 16, 'bold')).place(x=105, y=5, height=40, width=200)
+
+Label(opf, text="user", font=('Arial', 16, 'bold')).place(x=5, y=50, height=40, width=100)
+user = StringVar()
+user.set("root")
+Entry(opf, textvariable=user, width=30
+      , font=('Arial', 16, 'bold')).place(x=105, y=50, height=40, width=200)
+
+Label(opf, text="password", font=('Arial', 16, 'bold')).place(x=5, y=95, height=40, width=100)
+password = StringVar()
+
+Entry(opf, show="*", textvariable=password, width=30
+      , font=('Arial', 16, 'bold')).place(x=105, y=95, height=40, width=200)
+
+Button(opf, text="connect to mysql", font=('Arial', 12,),
+       command=connect_mysql).place(x=315, y=5, height=40, width=150)
+
+Button(opf, text="check connection", font=('Arial', 12,),
+       command=check_connection).place(x=315, y=50, height=40, width=150)
+
+Label(opf, text="connection", font=('Arial', 12, 'bold')).place(x=315, y=95, height=40, width=100)
+
+con_color_btn = Button(opf, bg="red", state=DISABLED)
+con_color_btn.place(x=425, y=95, height=40, width=40)
+
+
+def add():
+    "adds data to listbox"
+    data.append(results[cur_result_no])
+    print(len(data))
+    tables_box_update()
+
+
+Label(opf, text="save to current list", font=('Arial', 12)).place(x=470, y=5, height=40, width=170)
+Button(opf, text="save", command=add).place(x=470, y=50, height=40, width=170)
+t_name = StringVar()
+
+tables_box = Listbox(opf, width=200, height=300, font=('Arial', 16, 'bold'))
+tables_box.place(x=640, y=100)
+
+tables_box_update()
+
+# rf implies result frame
+rf = Frame(master_frame, height=800, width=960, bd=5, relief="sunken")
+rf.place(x=840, y=0)
+Label(rf, text="RESULT OF QUERY", font=('Arial', 32, "bold")).place(x=0, y=0, height=60, width=960)
+
+# query box
+Label(rf, text="mysql query box :- ", font=('Arial', 12, 'bold')).place(x=380, y=70, height=40, width=200)
+
+input_txt = Text(rf, bg="light yellow", font=('Arial', 14,))
+
+input_txt.place(x=0, y=75 + 40, width=960, height=135)
+
+Button(rf, text='previous', command=previous,
+       font=('Arial', 12, 'bold')).place(x=150, y=252, height=40, width=100)
+
+Button(rf, text='next', command=_next,
+       font=('Arial', 12, 'bold')).place(x=260, y=252, height=40, width=100)
+
+Button(rf, text='clear query', command=clear_text,
+       font=('Arial', 12, 'bold')).place(x=370, y=252, height=40, width=100)
+
+Button(rf, text='run query', command=mysql_execute,
+       font=('Arial', 12, 'bold')).place(x=490, y=252, height=40, width=100)
+
+Button(rf, text='commit', command=mysql_rollback,
+       font=('Arial', 12, 'bold')).place(x=600, y=252, height=40, width=100)
+
+Button(rf, text='rollback', command=mysql_commit,
+       font=('Arial', 12, 'bold')).place(x=710, y=252, height=40, width=100)
+
+root.mainloop()
